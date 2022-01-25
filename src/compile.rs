@@ -1,3 +1,6 @@
+use std::alloc::{alloc_zeroed, Layout};
+use std::collections::HashMap;
+use std::ffi::CStr;
 use auxtools::{Value, Proc};
 use auxtools::DMResult;
 use dmasm::{format_disassembly};
@@ -18,6 +21,8 @@ use crate::codegen::CodeGen;
 use inkwell::attributes::AttributeLoc;
 use crate::variable_termination_pass::variable_termination_pass;
 use crate::ref_count::generate_ref_count_operations;
+use crate::section_memory_manager_bindings::{SectionMemoryManager};
+use crate::stack_map::{StackMap, StkMapRecord};
 
 #[hook("/proc/dmjit_compile_proc")]
 pub fn compile_and_call(proc_name: auxtools::Value) -> DMResult {
@@ -97,10 +102,40 @@ pub fn install_hooks() -> DMResult {
         });
 
 
+        unsafe {
+            log::debug!("StackMap lookup started");
+            let sect = (*MEM_MANAGER).sections.iter().find(|(_, name, _)|
+                name.as_c_str() == CStr::from_bytes_with_nul_unchecked(".llvm_stackmaps\0".as_bytes())
+            );
+            if let Some(sect) = sect {
+                log::debug!("StackMap found: {:?}", sect);
+
+                let stack_map = crate::stack_map::read_stack_map(sect.0, sect.2);
+                log::debug!("StackMap: {:#?}", stack_map);
+
+                let StackMap { constants, map_records, .. } = stack_map;
+
+                STACK_MAP_INDEX = Option::Some(
+                    StackMapIndex {
+                        constants,
+                        records_by_id: map_records.into_iter().map(|record| (record.id, record)).collect(),
+                    }
+                );
+                log::debug!("StackMapIndex: {:?}", STACK_MAP_INDEX);
+            }
+        }
+
         Value::from_string(installed.join(", "))
     })
 }
 
+pub(crate) static mut STACK_MAP_INDEX: Option<StackMapIndex> = Option::None;
+
+#[derive(Debug)]
+pub struct StackMapIndex {
+    pub constants: Vec<crate::stack_map::Constant>,
+    pub records_by_id: HashMap<u64, StkMapRecord>
+}
 
 struct ModuleContext<'ctx> {
     context: Context,
@@ -118,6 +153,9 @@ impl<'ctx> Drop for ModuleContext<'ctx> {
     }
 }
 
+
+pub(crate) static mut MEM_MANAGER: *mut SectionMemoryManager = std::ptr::null_mut();
+
 impl ModuleContext<'static> {
 
     fn new() -> Pin<Box<ModuleContext<'static>>> {
@@ -134,8 +172,23 @@ impl ModuleContext<'static> {
         let context_ref = NonNull::from(&boxed.context);
 
         let module = unsafe { context_ref.as_ref() }.create_module("dmir");
-        let execution_engine = module.create_jit_execution_engine(OptimizationLevel::Default).unwrap();
 
+        unsafe {
+            MEM_MANAGER = alloc_zeroed(Layout::new::<SectionMemoryManager>()).cast();
+            *MEM_MANAGER = SectionMemoryManager::new();
+        }
+
+
+        let mm_ref = unsafe {
+            SectionMemoryManager::create_mcjit_memory_manager(MEM_MANAGER)
+        };
+
+
+        let execution_engine =
+            module.create_jit_execution_engine_with_options(|opts| {
+                opts.OptLevel = OptimizationLevel::Default as u32;
+                opts.MCJMM = mm_ref;
+            }).unwrap();
 
         log::info!("Initialize ModuleContext");
 
