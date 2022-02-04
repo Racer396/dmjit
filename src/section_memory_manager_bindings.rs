@@ -37,7 +37,24 @@ extern "C" {
 #[derive(Debug)]
 pub struct SectionMemoryManager {
     internal_ref: LLVMSectionMemoryManagerRef,
-    pub sections: Vec<(*mut u8, CString, usize)>
+    pub sections: Vec<Section>
+}
+
+#[derive(Debug)]
+pub struct Section {
+    pub name: CString,
+    pub address: *mut u8,
+    pub size: usize
+}
+
+impl Section {
+    fn new(section_name_cstr: *const libc::c_char, address: *mut u8, size: usize) -> Self {
+        Self {
+            name: unsafe { CString::from(CStr::from_ptr(section_name_cstr)) },
+            address,
+            size
+        }
+    }
 }
 
 impl SectionMemoryManager {
@@ -66,7 +83,7 @@ impl SectionMemoryManager {
                 section_name
             )
         };
-        unsafe { (*manager).sections.push((allocated, CString::from(CStr::from_ptr(section_name)), size)); }
+        unsafe { (*manager).sections.push(Section::new(section_name, allocated, size)); }
         return allocated;
     }
 
@@ -89,7 +106,7 @@ impl SectionMemoryManager {
                 is_read_only
             )
         };
-        unsafe { (*manager).sections.push((allocated, CString::from(CStr::from_ptr(section_name)), size)); }
+        unsafe { (*manager).sections.push(Section::new(section_name, allocated, size)); }
         return allocated;
     }
 

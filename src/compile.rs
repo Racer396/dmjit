@@ -21,7 +21,7 @@ use crate::codegen::CodeGen;
 use inkwell::attributes::AttributeLoc;
 use crate::variable_termination_pass::variable_termination_pass;
 use crate::ref_count::generate_ref_count_operations;
-use crate::section_memory_manager_bindings::{SectionMemoryManager};
+use crate::section_memory_manager_bindings::{SectionMemoryManager, Section};
 use crate::stack_map::{StackMap, StkMapRecord};
 
 #[hook("/proc/dmjit_compile_proc")]
@@ -103,15 +103,15 @@ pub fn install_hooks() -> DMResult {
 
 
         unsafe {
-            log::debug!("StackMap lookup started");
-            let sect = (*MEM_MANAGER).sections.iter().find(|(_, name, _)|
+            log::debug!("StackMap section lookup started");
+            let sect = (*MEM_MANAGER).sections.iter().find(|Section { name, .. }|
                 name.as_c_str() == CStr::from_bytes_with_nul_unchecked(".llvm_stackmaps\0".as_bytes())
             );
-            if let Some(sect) = sect {
-                log::debug!("StackMap found: {:?}", sect);
+            if let Some(section) = sect {
+                log::debug!("StackMap section found: {:?}", section);
 
-                let stack_map = crate::stack_map::read_stack_map(sect.0, sect.2);
-                log::debug!("StackMap: {:#?}", stack_map);
+                let stack_map = crate::stack_map::read_stack_map(section.address, section.size);
+                log::trace!("StackMap: {:#?}", stack_map);
 
                 let StackMap { constants, map_records, .. } = stack_map;
 
@@ -121,8 +121,12 @@ pub fn install_hooks() -> DMResult {
                         records_by_id: map_records.into_iter().map(|record| (record.id, record)).collect(),
                     }
                 );
-                log::debug!("StackMapIndex: {:?}", STACK_MAP_INDEX);
+                log::trace!("StackMapIndex: {:?}", STACK_MAP_INDEX);
+            } else {
+                log::debug!("StackMap section not found");
             }
+
+            log::debug!("All sections is: {:#?}", *(MEM_MANAGER));
         }
 
         Value::from_string(installed.join(", "))
