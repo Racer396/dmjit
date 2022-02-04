@@ -202,7 +202,7 @@ impl ByondFrame {
                 *(((&value) as *const u64) as *const T)
             }
         };
-        log::debug!("{:?} -> {:?}", local, r);
+        log::trace!("{:?} -> {:?}", local, r);
         return r;
     }
 }
@@ -210,17 +210,17 @@ impl ByondFrame {
 extern "C" fn handle_deopt_bridge(
     frame: Frame
 ) {
-    log::debug!("Deopt called");
+    log::trace!("Deopt called");
     let res = catch_unwind(move || {
         let deopt_id = DeoptId(frame.id);
-        log::debug!("Deopt entry: {:?}, site: {}", deopt_id.proc_id(), deopt_id.site_id());
+        log::trace!("Deopt entry: {:?}, site: {}", deopt_id.proc_id(), deopt_id.site_id());
 
-        log::debug!("Deopt frame: {:?}", frame);
+        log::trace!("Deopt frame: {:?}", frame);
         let stack_map_index = unsafe { STACK_MAP_INDEX.as_ref().unwrap() };
         let record = stack_map_index.records_by_id.get(&frame.id).unwrap();
-        log::debug!("Deopt record: {:?}", record);
+        log::trace!("Deopt record: {:?}", record);
         let byond_frame = unsafe { ByondFrame::new(&frame, stack_map_index, record) };
-        log::debug!("Byond Frame: {:?}", byond_frame);
+        log::trace!("Byond Frame: {:?}", byond_frame);
 
 
 
@@ -238,7 +238,7 @@ extern "C" fn handle_deopt_bridge(
             byond_frame.locals
         );
 
-        log::debug!("id: {} ret: {:x} eax: {:x} edx: {:x} ecx: {:x} ebx: {:x} esi: {:x} edi: {:x} ebp: {:x} esp: {:x}",
+        log::trace!("id: {} ret: {:x} eax: {:x} edx: {:x} ecx: {:x} ebx: {:x} esi: {:x} edi: {:x} ebp: {:x} esp: {:x}",
             frame.id,
             frame.ret,
             frame.eax,
