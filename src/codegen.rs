@@ -116,11 +116,11 @@ macro_rules! decl_type {
 }
 
 macro_rules! decl_sig {
-    ($code_gen:ident ($($arg:tt),+) -> $result:tt) => (
-        decl_type!($code_gen $result).fn_type(&[$(decl_type!($code_gen $arg).into()),+], false)
-    );
-    ($code_gen:ident ($($arg:tt),+...) -> $result:tt) => (
+    ($code_gen:ident ($($arg:ident),+,...) -> $result:tt) => (
         decl_type!($code_gen $result).fn_type(&[$(decl_type!($code_gen $arg).into()),+], true)
+    );
+    ($code_gen:ident ($($arg:ident),+) -> $result:tt) => (
+        decl_type!($code_gen $result).fn_type(&[$(decl_type!($code_gen $arg).into()),+], false)
     );
 }
 
@@ -1426,26 +1426,7 @@ impl<'ctx> CodeGen<'ctx, '_> {
                 let deopt_id = DeoptId::new(*proc_id, self.deopt_count);
                 self.deopt_count += 1;
 
-                let insert_stack_map = decl_intrinsic!("llvm.experimental.stackmap" (i64_type, i32_type, ...) -> void_type);
-
-                let out_stack_type = self.val_type.array_type(self.stack_loc.len() as u32);
-                let stack_out_ptr = self.builder.build_alloca(out_stack_type, "out_stack");
-                let mut stack_out_array = out_stack_type.const_zero();
-                for (pos, loc) in self.stack_loc.iter().enumerate() {
-                    stack_out_array = self.builder.build_insert_value(stack_out_array, loc.clone(), pos as u32, "store_value_from_stack").unwrap().into_array_value();
-                }
-                self.builder.build_store(stack_out_ptr, stack_out_array);
-
-                let local_count = self.local_count;
-
-                let out_locals_type = self.val_type.array_type(local_count as u32);
-                let locals_out_ptr = self.builder.build_alloca(out_locals_type, "out_locals");
-                let mut locals_out_array = out_locals_type.const_zero();
-                for (idx, loc) in &self.locals {
-                    locals_out_array = self.builder.build_insert_value(locals_out_array, loc.clone(), *idx, "store_value_from_local").unwrap().into_array_value();
-                }
-
-                self.builder.build_store(locals_out_ptr, locals_out_array);
+                let insert_stack_map = decl_intrinsic!(self "llvm.experimental.stackmap" (i64_type, i32_type, ...) -> void_type);
 
                 let parameter_count = Proc::from_id(proc_id.clone()).unwrap().parameter_names();
 
