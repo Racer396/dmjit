@@ -17,13 +17,6 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v2
-        
-      - name: Checkout LLVM repository
-        uses: actions/checkout@v2
-        with:
-          repository: llvm/llvm-project
-          ref: llvmorg-12.0.0
-          path: ./llvm-12.0.0.src
 
       - name: Log in to the Container registry
         uses: docker/login-action@v1
