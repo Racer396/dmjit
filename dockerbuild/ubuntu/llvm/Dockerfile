@@ -32,7 +32,7 @@ RUN mkdir -p /work/build
 RUN mkdir -p /work/llvm-src
 WORKDIR /work
 ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/llvm-12.0.1.src.tar.xz llvm-12.0.1.src.tar.xz
-RUN tar -xf llvm-12.0.1.src.tar.xz -C /llvm-src
+RUN tar xf llvm-12.0.1.src.tar.xz -C /llvm-src
 
 WORKDIR /work/build
 RUN cmake -DCMAKE_LIBRARY_PATH="/usr/lib/i386-linux-gnu" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_BUILD_32_BITS=ON -DLLVM_BUILD_TESTS=OFF -DLLVM_BUILD_BENCHMARKS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF ../llvm-src
