@@ -1,0 +1,5 @@
+name: Build DMJit for Windows
+
+on:
+  push:
+    branches: ['main']

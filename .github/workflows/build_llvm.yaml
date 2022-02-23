@@ -1,4 +1,4 @@
-name: Create and publish a Docker image
+name: Create and push LLVM image
 
 on:
   workflow_dispatch:

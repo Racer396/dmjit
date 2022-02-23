@@ -1,0 +1,5 @@
+name: Build DMJit for Linux
+
+on:
+  push:
+    branches: ['main']
