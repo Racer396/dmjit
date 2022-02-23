@@ -31,6 +31,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: Install xa utils
+        run: sudo apt-get install xz-utils
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
