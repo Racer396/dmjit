@@ -19,7 +19,8 @@ jobs:
       - name: Checkout auxtools repository
         uses: actions/checkout@v2
         with:
-          repository: willox/auxtools
+          repository: ss220-space/auxtools
+          ref: dm-jitaux
           path: auxtools-repo
       - name: Checkout current repository
         uses: actions/checkout@v2
