@@ -9,18 +9,6 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   
 jobs:
-  get-llvm:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Pull LLVM image
-        run: docker pull ghcr.io/racer396/dmjit:main
-      - name: Create LLVM container
-        run: docker container create --name extract ghcr.io/racer396/dmjit:main
-      - name: Extract image
-        run: docker container cp -L extract:/work/build ./llvm
-      - name: Remove container
-        run: docker container rm -f extract
-        
   build-dmjit:
     runs-on: ubuntu-latest
     permissions:
