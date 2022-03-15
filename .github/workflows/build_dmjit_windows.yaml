@@ -9,14 +9,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   
 jobs:
-  get-llvm:
+  build-dmjit:
     runs-on: windows-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@v2
-      - name: Build dmJIT
-        run: docker build -f ./dockerbuild/ubuntu/dmjit/Dockerfile .
+      - name: Not Implemented Yet
+        run: echo Not Implemented Yet
