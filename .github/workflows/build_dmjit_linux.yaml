@@ -31,7 +31,9 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v2
+        with:
+          path: dmjit-repo
       - name: Check directory
         run: ls -a
       - name: Build dmJIT
-        run: docker build -f ./dockerbuild/ubuntu/dmjit/Dockerfile .
+        run: docker build -f ./dmjit-repo/dockerbuild/ubuntu/dmjit/Dockerfile .
