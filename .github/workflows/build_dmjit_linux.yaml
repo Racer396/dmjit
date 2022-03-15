@@ -33,4 +33,4 @@ jobs:
       - name: Show files
         run: ls -a
       - name: Build dmJIT
-        run: docker build ./dockerbuild/ubuntu/dmjit/Dockerfile
+        run: docker build -f ./dockerbuild/ubuntu/dmjit/Dockerfile .
