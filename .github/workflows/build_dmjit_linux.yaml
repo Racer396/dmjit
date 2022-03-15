@@ -9,6 +9,16 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   
 jobs:
+  checkout-auxtools:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v2
+        with:
+          repository: willox/auxtools
   build-dmjit:
     runs-on: ubuntu-latest
     permissions:
@@ -18,7 +28,5 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v2
-      - name: Show files
-        run: ls -a
       - name: Build dmJIT
         run: docker build -f ./dockerbuild/ubuntu/dmjit/Dockerfile .
