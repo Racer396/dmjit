@@ -1,4 +1,4 @@
-FROM llvm-12
+FROM ghcr.io/racer396/dmjit:main
 
 RUN apt-get install curl
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -18,7 +18,7 @@ RUN rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
 
 RUN cargo search lazy_static
 
-ENV LLVM_SYS_120_PREFIX="/home/runner/work/dmjit/dmjit/llvm"
+ENV LLVM_SYS_120_PREFIX="/usr/local/"
 
 ENV RUSTFLAGS="-L native=/usr/local/lib"
 
