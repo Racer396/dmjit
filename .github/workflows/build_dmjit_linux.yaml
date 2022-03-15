@@ -10,6 +10,7 @@ env:
   
 jobs:
   get-llvm:
+    runs-on: ubuntu-latest
     steps:
       - name: Pull LLVM image
         run: docker pull ghcr.io/racer396/dmjit:main
