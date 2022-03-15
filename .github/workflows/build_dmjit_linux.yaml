@@ -21,7 +21,7 @@ jobs:
       - name: Remove container
         run: docker container rm -f extract
       - name: Install LLVM to system
-        run: pwd
+        run: cp /llvm ../../../../local
         
   build-dmjit:
     runs-on: ubuntu-latest
@@ -32,5 +32,7 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v2
+      - name: Show files
+        uses: ls -a
       - name: Build dmJIT
         run: docker build ./dockerbuild/ubuntu/dmjit/Dockerfile
