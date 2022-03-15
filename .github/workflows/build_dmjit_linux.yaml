@@ -31,7 +31,5 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v2
-
-    steps:
       - name: Build dmJIT
         run: docker build ./dockerbuild/ubuntu/dmjit/Dockerfile
