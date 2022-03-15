@@ -3,3 +3,14 @@ name: Build DMJit for Windows
 on:
   push:
     branches: ['main']
+    
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  
+jobs:
+  get-llvm:
+    runs-on: windows-latest
+    steps:
+      - name: Not Implemented Yet
+        run: echo Not Implemented Yet
