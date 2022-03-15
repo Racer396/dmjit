@@ -9,21 +9,6 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   
 jobs:
-  checkout-auxtools:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout current repository
-        uses: actions/checkout@v2
-        with:
-          repository: willox/auxtools
-          path: auxtools-repo
-      - name: Check root
-        run: pwd
-      - name: Check directory
-        run: ls -a
   build-dmjit:
     runs-on: ubuntu-latest
     permissions:
@@ -31,6 +16,11 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout auxtools repository
+        uses: actions/checkout@v2
+        with:
+          repository: willox/auxtools
+          path: auxtools-repo
       - name: Checkout current repository
         uses: actions/checkout@v2
         with:
