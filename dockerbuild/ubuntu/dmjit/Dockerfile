@@ -7,7 +7,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
 
-ADD auxtools /work/auxtools
+ADD auxtools-repo /work/auxtools
 ADD dmjit /work/dmjit
 
 

@@ -19,6 +19,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: willox/auxtools
+          path: auxtools-repo
       - name: Check directory
         run: ls -a
   build-dmjit:
