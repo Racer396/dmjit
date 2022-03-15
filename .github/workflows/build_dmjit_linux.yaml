@@ -3,3 +3,35 @@ name: Build DMJit for Linux
 on:
   push:
     branches: ['main']
+    
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  
+jobs:
+  get-llvm:
+    steps:
+      - name: Pull LLVM image
+        run: docker pull ghcr.io/racer396/dmjit:main
+      - name: Create LLVM container
+        run: docker container create --name extract ghcr.io/racer396/dmjit:main
+      - name: Extract image
+        run: docker container cp -L extract:/work/build ./llvm
+      - name: Remove container
+        run: docker container rm -f extract
+      - name: Install LLVM to system
+        run: pwd
+        
+  build-dmjit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v2
+
+    steps:
+      - name: Build dmJIT
+        run: docker build ./dockerbuild/ubuntu/dmjit/Dockerfile
