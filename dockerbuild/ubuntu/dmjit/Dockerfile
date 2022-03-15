@@ -18,7 +18,7 @@ RUN rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
 
 RUN cargo search lazy_static
 
-ENV LLVM_SYS_120_PREFIX="/usr/local/"
+ENV LLVM_SYS_120_PREFIX="/home/runner/work/dmjit/dmjit/llvm"
 
 ENV RUSTFLAGS="-L native=/usr/local/lib"
 

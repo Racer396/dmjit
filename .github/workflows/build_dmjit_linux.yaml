@@ -20,8 +20,6 @@ jobs:
         run: docker container cp -L extract:/work/build ./llvm
       - name: Remove container
         run: docker container rm -f extract
-      - name: Install LLVM to system
-        run: cp -r llvm/. ../../../../local
         
   build-dmjit:
     runs-on: ubuntu-latest
