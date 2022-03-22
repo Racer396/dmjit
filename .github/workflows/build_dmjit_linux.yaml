@@ -10,7 +10,7 @@ env:
   
 jobs:
   build-dmjit:
-    runs-on: ubuntu-latest
+    container: dmjit:main
     permissions:
       contents: read
       packages: write
@@ -21,14 +21,30 @@ jobs:
         with:
           repository: ss220-space/auxtools
           ref: dm-jitaux
-          path: auxtools-repo
+          path: auxtools
       - name: Checkout current repository
         uses: actions/checkout@v2
         with:
-          path: dmjit-repo
+          path: dmjit
       - name: Check root
         run: pwd
       - name: Check directory
         run: ls -a
-      - name: Build dmJIT
-        run: docker build -f ./dmjit-repo/dockerbuild/ubuntu/dmjit/Dockerfile .
+      - name: Install curl
+        run: apt-get install curl
+      - name: Get rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Install toolchain
+        run: rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
+      - name: Make workdir dmjit
+        run: cd dmjit
+      - name: Set target
+        run: rustup target add i686-unknown-linux-gnu
+      - name: Set override
+        run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
+      - name: Search
+        run: cargo search lazy_static
+      - name: Install libffi
+        run: apt-get install libffi-dev:i386
+      - name: Run build
+        run: cargo build --release --target i686-unknown-linux-gnu
