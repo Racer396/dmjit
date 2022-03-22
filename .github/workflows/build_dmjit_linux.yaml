@@ -11,7 +11,7 @@ env:
 jobs:
   build-dmjit:
     runs-on: ubuntu-latest
-    container: dmjit:main
+    container: ghcr.io/racer396/dmjit:main
     permissions:
       contents: read
       packages: write
