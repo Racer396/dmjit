@@ -9,7 +9,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  PATH: /root/.cargo/bin:${PATH}
   
 jobs:
   build-dmjit:
@@ -38,6 +37,8 @@ jobs:
         run: cd dmjit
       - name: Install toolchain
         run: rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
+        env:
+          PATH: /root/.cargo/bin:${PATH}
       - name: Set override
         run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
       - name: Set target
