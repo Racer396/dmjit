@@ -35,14 +35,12 @@ jobs:
         run: ls -a
       - name: Make workdir dmjit
         run: cd dmjit
-      - name: Set environment variables appropriately for the build
-        run: |
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - name: Install toolchain
-        run: rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
-      - name: Set override
-        run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
-      - name: Set target
-        run: rustup target add i686-unknown-linux-gnu
-      - name: Run build
-        run: cargo build --release --target i686-unknown-linux-gnu
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2021-11-05-i686-unknown-linux-gnu
+          target: i686-unknown-linux-gnu
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target i686-unknown-linux-gnu
