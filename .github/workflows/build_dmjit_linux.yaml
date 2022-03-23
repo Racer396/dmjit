@@ -35,10 +35,11 @@ jobs:
         run: ls -a
       - name: Make workdir dmjit
         run: cd dmjit
+      - name: Set environment variables appropriately for the build
+        run: |
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Install toolchain
         run: rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
-        env:
-          PATH: /root/.cargo/bin:${PATH}
       - name: Set override
         run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
       - name: Set target
