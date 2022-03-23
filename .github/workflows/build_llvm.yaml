@@ -5,7 +5,7 @@ on:
     inputs:
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: LLVM-Linux
+  IMAGE_NAME: ${{ github.repository }}-LLVM-Linux
 
 jobs:
   build-and-push-image:

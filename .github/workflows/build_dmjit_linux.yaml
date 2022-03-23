@@ -31,23 +31,7 @@ jobs:
         run: pwd
       - name: Check directory
         run: ls -a
-      - name: Install curl
-        run: apt-get install curl
-      - name: Install rust
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - name: Set path
-        run: source $HOME/.cargo/env
-      - name: Install toolchain
-        run: rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
       - name: Make workdir dmjit
         run: cd dmjit
-      - name: Set target
-        run: rustup target add i686-unknown-linux-gnu
-      - name: Set override
-        run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
-      - name: Search
-        run: cargo search lazy_static
-      - name: Install libffi
-        run: apt-get install libffi-dev:i386
       - name: Run build
         run: cargo build --release --target i686-unknown-linux-gnu
