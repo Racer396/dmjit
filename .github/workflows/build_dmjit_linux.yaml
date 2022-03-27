@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: ghcr.io/racer396/dmjit-llvm-linux:main
-      options: "--user root"
+      options: --user root
     permissions:
       contents: read
       packages: write
