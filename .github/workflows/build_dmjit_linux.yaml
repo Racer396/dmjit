@@ -13,7 +13,9 @@ env:
 jobs:
   build-dmjit:
     runs-on: ubuntu-latest
-    container: ghcr.io/racer396/dmjit-llvm-linux:main
+    container: 
+      image: ghcr.io/racer396/dmjit-llvm-linux:main
+      options: "--user root"
     permissions:
       contents: read
       packages: write
