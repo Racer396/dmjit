@@ -38,20 +38,3 @@ WORKDIR /work/build
 RUN cmake -DCMAKE_LIBRARY_PATH="/usr/lib/i386-linux-gnu" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_BUILD_32_BITS=ON -DLLVM_BUILD_TESTS=OFF -DLLVM_BUILD_BENCHMARKS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF ../llvm-src/llvm-12.0.1.src
 RUN cmake --build . -j 16
 RUN cmake --install .
-
-
-RUN apt-get install curl
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-RUN rustup toolchain install nightly-2021-11-05-i686-unknown-linux-gnu
-RUN rustup target add i686-unknown-linux-gnu
-RUN rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
-
-RUN cargo search lazy_static
-
-ENV LLVM_SYS_120_PREFIX="/usr/local/"
-ENV RUSTFLAGS="-L native=/usr/local/lib"
-
-RUN apt-get install libffi-dev:i386

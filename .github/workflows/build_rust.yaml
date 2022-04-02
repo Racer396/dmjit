@@ -1,11 +1,11 @@
-name: (Linux) Create and push LLVM image
+name: (Linux) Create and push Rust image
 
 on:
   workflow_dispatch:
     inputs:
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-LLVM-Linux
+  IMAGE_NAME: ${{ github.repository }}-LLVM-Rust-Linux
 
 jobs:
   build-and-push-image:
@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./dockerbuild/ubuntu/llvm/Dockerfile
+          file: ./dockerbuild/ubuntu/rust/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
