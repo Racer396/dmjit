@@ -39,5 +39,7 @@ jobs:
         run: cd dmjit
       - name: Set override
         run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
+        working-directory: ./dmjit
       - name: Run build
         run: cargo build --release
+        working-directory: ./dmjit
