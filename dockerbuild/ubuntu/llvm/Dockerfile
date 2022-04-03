@@ -31,7 +31,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -yy install \
 RUN mkdir -p /work/build
 RUN mkdir -p /work/llvm-src
 WORKDIR /work/llvm-src
-ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/llvm-13.0.1.src.tar.xz llvm-13.0.1.src.tar.xz
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.1/llvm-13.0.1.src.tar.xz llvm-13.0.1.src.tar.xz
 RUN tar -xvf llvm-13.0.1.src.tar.xz
 
 WORKDIR /work/build
