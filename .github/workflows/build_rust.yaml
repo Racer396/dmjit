@@ -40,5 +40,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
         env:
-          CARGO_HOME: ${{ HOME }}/.cargo/bin
-          RUSTUP_HOME: ${{ HOME }}/.cargo/bin
+          CARGO_HOME: /github/home/.cargo/bin
+          RUSTUP_HOME: /github/home/.cargo/bin
