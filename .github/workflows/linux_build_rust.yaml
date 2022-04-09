@@ -9,7 +9,7 @@ on:
     inputs:
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-LLVM-Rust-Linux
+  IMAGE_NAME: ${{ github.repository }}-llvm-rust-linux
 
 jobs:
   build-and-push-image:
