@@ -14,7 +14,7 @@ jobs:
   build-dmjit:
     runs-on: ubuntu-latest
     container: 
-      image: ghcr.io/racer396/dmjit-llvm-rust-linux:main
+      image: ghcr.io/racer396/dmjit-LLVM-Rust-Byond-Linux:main
       options: --user root
     permissions:
       contents: read
