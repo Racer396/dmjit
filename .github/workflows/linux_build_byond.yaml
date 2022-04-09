@@ -1,6 +1,10 @@
 name: (Linux) Create and push Byond image
 
 on:
+  workflow_run:
+    workflows: ["(Linux) Create and push Rust image"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
 env:

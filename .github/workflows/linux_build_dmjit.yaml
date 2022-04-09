@@ -1,6 +1,10 @@
 name: Build DMJit for Linux
 
 on:
+  workflow_run:
+    workflows: ["(Linux) Create and push Byond image"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
   push:
