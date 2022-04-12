@@ -23,7 +23,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: ./.github/workflows/my-action
+      - uses: ./.github/workflows/linux_build_dmjit.yaml
         with:
           byondVersion: ${{ github.event.inputs.byondVersion }}
           byondBuild: ${{ github.event.inputs.byondBuild }}
