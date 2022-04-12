@@ -69,6 +69,7 @@ jobs:
         working-directory: ./dmjit
       - name: Run tests
         run: cargo test
+        shell: bash
         working-directory: ./dmjit
         env:
           BYOND_PATH: /__w/dmjit/dmjit/byond
