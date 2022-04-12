@@ -10,12 +10,12 @@ on:
       byondVersion:
         description: 'Byond major version, like 514 in 514.1543 version'     
         required: false
-        default: '514'
+        default: 514
         type: number
       byondBuild:
         description: 'Byond build version, like 1543 in 514.1543 version'     
         required: false
-        default: '1583'
+        default: 1583
         type: number
   push:
     branches: ['main']
