@@ -58,7 +58,7 @@ jobs:
       - name: Check directory
         run: ls -a
       - name: Extract byond archive
-        run: unzip ${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip -d /byond
+        run: unzip ${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip
       - name: Make workdir dmjit
         run: cd dmjit
       - name: Set override
