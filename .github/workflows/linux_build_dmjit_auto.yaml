@@ -13,4 +13,4 @@ jobs:
     uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
     with:
       byondVersion: '514'
-      byondBuild: '1583'
+      byondBuild: '1569'
