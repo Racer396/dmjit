@@ -1,0 +1,29 @@
+name: Build DMJit for Linux [Manual]
+
+on:
+  workflow_dispatch:
+    inputs:
+      byondVersion:
+        description: 'Byond major version, like 514 in 514.1543 version'     
+        required: true
+        default: '514'
+      byondBuild:
+        description: 'Byond build version, like 1543 in 514.1543 version'     
+        required: true
+        default: '1583'
+  
+jobs:
+  build-dmjit:
+    runs-on: ubuntu-latest
+    container: 
+      image: ghcr.io/racer396/dmjit-llvm-rust-linux:main
+      options: --user root
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: ./.github/workflows/my-action
+        with:
+          byondVersion: ${{ github.event.inputs.byondVersion }}
+          byondBuild: ${{ github.event.inputs.byondBuild }}
