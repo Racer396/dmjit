@@ -43,8 +43,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: dmjit
-      - name: Install 7z
-        run: apt-get install p7zip
+      - name: Install zip
+        run: apt-get install zip unzip
       - name: Download byond
         uses: suisei-cn/actions-download-file@v1
         id: downloadfile 
@@ -58,7 +58,7 @@ jobs:
       - name: Check directory
         run: ls -a
       - name: Extract byond archive
-        run: 7z x ${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip -o /byond
+        run: unzip ${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip -d /byond
       - name: Make workdir dmjit
         run: cd dmjit
       - name: Set override
