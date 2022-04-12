@@ -16,7 +16,7 @@ jobs:
       packages: write
 
     steps:
-      - uses: ${{ GITHUB_REPOSITORY }}.github/workflows/linux_build_dmjit.yaml@main
+      - uses: ${{ github.repository }}.github/workflows/linux_build_dmjit.yaml@main
         with:
           byondVersion: '514'
           byondBuild: '1583'
