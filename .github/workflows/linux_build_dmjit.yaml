@@ -49,6 +49,8 @@ jobs:
         with:
           url: "http://www.byond.com/download/build/${{ github.event.inputs.byondVersion }}/${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip"
           target: ./
+      - name: Create byond folder
+        run: mkdir byond
       - name: Check root
         run: pwd
       - name: Check directory
