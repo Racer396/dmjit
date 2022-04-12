@@ -9,11 +9,11 @@ on:
     inputs:
       byondVersion:
         description: 'Byond major version, like 514 in 514.1543 version'     
-        required: true
+        required: false
         default: '514'
       byondBuild:
         description: 'Byond build version, like 1543 in 514.1543 version'     
-        required: true
+        required: false
         default: '1583'
   push:
     branches: ['main']
