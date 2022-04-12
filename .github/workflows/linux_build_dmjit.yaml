@@ -1,15 +1,13 @@
-name: Build DMJit for Linux
-
 on:
   workflow_call:
     inputs:
       byondVersion:
-        description: 'Byond major version, like 514 in 514.1543 version'     
+        description: 'Byond major version, like 514 in 514.1543 version'
         required: true
         default: '514'
         type: string
       byondBuild:
-        description: 'Byond build version, like 1543 in 514.1543 version'     
+        description: 'Byond build version, like 1543 in 514.1543 version'
         required: true
         default: '1583'
         type: string
@@ -41,12 +39,12 @@ jobs:
         uses: suisei-cn/actions-download-file@v1
         id: downloadfile 
         with:
-          url: "http://www.byond.com/download/build/${{ github.event.inputs.byondVersion }}/${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip"
+          url: "http://www.byond.com/download/build/${{ inputs.byondVersion }}/${{ inputs.byondVersion }}.${{ inputs.byondBuild }}_byond_linux.zip"
           target: ./
       - name: Create byond folder
         run: mkdir byond
       - name: Extract byond archive
-        run: unzip ${{ github.event.inputs.byondVersion }}.${{ github.event.inputs.byondBuild }}_byond_linux.zip
+        run: unzip ${{ inputs.byondVersion }}.${{ inputs.byondBuild }}_byond_linux.zip
       - name: Set override
         run: rustup override set nightly-2021-11-05-i686-unknown-linux-gnu
         working-directory: ./dmjit

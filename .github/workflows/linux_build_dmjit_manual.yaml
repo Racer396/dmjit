@@ -19,9 +19,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@v3
-      - uses: ./.github/actions/linux/dmjit
+      - uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
         with:
           byondVersion: ${{ github.event.inputs.byondVersion }}
           byondBuild: ${{ github.event.inputs.byondBuild }}

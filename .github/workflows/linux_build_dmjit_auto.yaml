@@ -16,9 +16,7 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@v3
-      - uses: ./.github/actions/linux/dmjit
+      - uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
         with:
           byondVersion: '514'
           byondBuild: '1583'
