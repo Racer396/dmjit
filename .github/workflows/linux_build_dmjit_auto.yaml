@@ -1,4 +1,4 @@
-name: Build DMJit for Linux [Manual]
+name: Build DMJit for Linux [Auto]
 
 on:
   push:
