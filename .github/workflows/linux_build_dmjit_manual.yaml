@@ -14,10 +14,6 @@ on:
   
 jobs:
   build-dmjit:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
     with:
       byondVersion: ${{ github.event.inputs.byondVersion }}
