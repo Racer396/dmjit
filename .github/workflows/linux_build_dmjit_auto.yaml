@@ -22,7 +22,7 @@ jobs:
           path: dmjit
       - name: Check folder
         run: ls -a
-      - uses: dmjit/.github/workflows/linux_build_dmjit.yaml
+      - uses: /dmjit/.github/workflows/linux_build_dmjit.yaml
         with:
           byondVersion: 514
           byondBuild: 1583
