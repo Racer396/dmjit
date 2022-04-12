@@ -14,7 +14,6 @@ use crate::ref_count::RValue::Phi;
 use crate::ref_count::RValueDrain::{ConsumeDrain, DeoptDrain, MoveOutDrain};
 
 /// Denotes different types of value sources
-#[derive(Eq)]
 enum RValue<'t> {
     ProduceSource(usize, IncRefOp), // on-demand ref count increment, example: getting value from variable, which already have non-zero ref count, and by this can be eliminated
     UncountedSource(usize), // produces value, that doesn't need to be counted, example: results of numeric operations
@@ -22,28 +21,23 @@ enum RValue<'t> {
     Phi(u32, RefCell<Vec<&'t RValue<'t>>>) // combines values in results of branching
 }
 
-impl<'t> PartialEq for RValue<'t> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (RValue::ProduceSource(a, a_loc), RValue::ProduceSource(b, b_loc)) => a == b && a_loc == b_loc,
-            (RValue::UncountedSource(a), RValue::UncountedSource(b)) => a == b,
-            (RValue::MovedInSource(a), RValue::MovedInSource(b)) => a == b,
-            (Phi(a, _), Phi(b, _)) => a == b,
-            _ => false
+macro_rules! ref_identity {
+    ($t:ty) => {
+        impl<'a> PartialEq for &'a $t {
+            fn eq(&self, other: &Self) -> bool {
+                std::ptr::eq(*self, *other)
+            }
         }
-    }
+        impl<'a> Eq for &'a $t {}
+        impl<'a> Hash for &'a $t {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                std::ptr::hash(*self, state);
+            }
+        }
+    };
 }
 
-impl<'t> Hash for RValue<'t> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match *self {
-            RValue::ProduceSource(pos, _) => state.write_usize(pos),
-            RValue::MovedInSource(pos) => state.write_usize(pos),
-            RValue::UncountedSource(pos) => state.write_usize(pos),
-            Phi(pos, _) => state.write_u32(pos),
-        }
-    }
-}
+ref_identity!(RValue<'_>);
 
 /// Denotes value drains
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
@@ -339,7 +333,7 @@ impl<'t> Analyzer<'t> {
                 }
                 self.block_ended = true;
             }
-            DMIR::FloatAdd | DMIR::FloatSub | DMIR::FloatMul | DMIR::FloatDiv | DMIR::RoundN => {
+            DMIR::FloatAdd | DMIR::FloatSub | DMIR::FloatMul | DMIR::FloatDiv | DMIR::RoundN | DMIR::BitAnd | DMIR::BitOr => {
                 op_effect!(
                     @consume @stack,
                     @consume @stack,
@@ -374,6 +368,7 @@ impl<'t> Analyzer<'t> {
             DMIR::PushTestFlag => {
                 op_effect!(@produce_uncounted @stack);
             }
+            DMIR::SetTestFlag(_) => {}
             DMIR::Pop => {
                 op_effect!(@consume @stack);
             }
@@ -495,10 +490,9 @@ impl<'t> Analyzer<'t> {
                     @consume @stack
                 );
             }
-            DMIR::IsNull => {
+            DMIR::TestIsDMEntity => {
                 op_effect!(
-                    @consume @stack,
-                    @produce @stack
+                    @consume @stack
                 );
             }
             DMIR::DupX1 => {
@@ -695,7 +689,7 @@ pub fn generate_ref_count_operations(ir: &mut Vec<DMIR>, parameter_count: usize)
                     decision_by_source.insert(source, decision.clone());
                 }
                 decision_by_drain.insert(drain, decision.clone());
-                log::debug!("Fix {:?} into {:?}", drain, decision);
+                log::trace!("Fix {:?} into {:?}", drain, decision);
                 None
             } else {
                 Some(*drain)
@@ -728,7 +722,7 @@ pub fn generate_ref_count_operations(ir: &mut Vec<DMIR>, parameter_count: usize)
         };
 
         let decision = decision_by_drain.get(drain);
-        let annotation = format!("dec: {:?} (from: {})", decision.unwrap_or(&Decision::Undecided), source);
+        let annotation = format!("dec: {:?}", decision.unwrap_or(&Decision::Undecided));
         annotations.add(pos.clone(), annotation);
     }
 
@@ -803,17 +797,21 @@ pub fn generate_ref_count_operations(ir: &mut Vec<DMIR>, parameter_count: usize)
         }
         match drain {
             DeoptDrain(pos, _, op) => {
+                let location = match op {
+                    IncRefOp::Pre(location) => location.clone(),
+                    _ => panic!("Post inc ref not supported for deopt-s")
+                };
+
                 let instruction = ir.get_mut(pos.clone()).unwrap();
                 match instruction {
                     DMIR::CheckTypeDeopt(_, _, deopt) | DMIR::ListCheckSizeDeopt(_, _, deopt) | DMIR::InfLoopCheckDeopt(deopt)  => {
-                        let mut tmp = DMIR::End;
-                        std::mem::swap(deopt.borrow_mut(), &mut tmp);
-                        *deopt.borrow_mut() = create_inc_ref_count_ir(tmp, op);
+                        match deopt.borrow_mut() {
+                            DMIR::Deopt(_, inc_ref_count_locations) => inc_ref_count_locations.push(location),
+                            _ => panic!("not matching instruction type")
+                        }
                     }
-                    DMIR::IncRefCount { .. } | DMIR::Deopt(_, _) => {
-                        let mut tmp = DMIR::End;
-                        std::mem::swap(instruction, &mut tmp);
-                        *instruction = create_inc_ref_count_ir(tmp, op);
+                    DMIR::Deopt(_, inc_ref_count_locations) => {
+                        inc_ref_count_locations.push(location)
                     }
                     _ => panic!("not matching instruction type")
                 }

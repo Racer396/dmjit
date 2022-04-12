@@ -31,6 +31,8 @@ pub enum DMIR {
     FloatAbs,
     FloatInc,
     FloatDec,
+    BitAnd,
+    BitOr,
     RoundN,
     ListCheckSizeDeopt(ValueLocation, ValueLocation, Box<DMIR>),
     ListCopy,
@@ -43,12 +45,13 @@ pub enum DMIR {
     PushInt(i32),
     PushVal(dmasm::operands::ValueOpRaw),
     PushTestFlag, // Push test flag value as Number
+    SetTestFlag(bool),
     Pop,
     Ret,
     Not,
     Test,
     TestEqual,
-    IsNull,
+    TestIsDMEntity,
     JZ(String),
     Dup, // Duplicate last value on stack
     DupX1, // Duplicate top value and insert one slot back ..., a, b -> ..., b, a, b
@@ -61,7 +64,7 @@ pub enum DMIR {
     EnterBlock(String),
     Jmp(String),
     InfLoopCheckDeopt(Box<DMIR>),
-    Deopt(u32, ProcId),
+    Deopt(u32, Vec<ValueLocation>),
     CheckTypeDeopt(u32, ValueTagPredicate, Box<DMIR>), // Doesn't consume stack value for now
     CallProcById(ProcId, u8, u32),
     CallProcByName(StringId, u8, u32),
@@ -207,11 +210,11 @@ fn decode_call(vr: &Variable, arg_count: u32, out: &mut Vec<DMIR>) {
 fn decode_cmp(op: FloatPredicate, data: &DebugData, proc: &Proc, out: &mut Vec<DMIR>) {
     out.push(check_type_deopt!(
         @0 !is value_tag_pred!(@union ValueTag::Number, ValueTag::Null)
-        => DMIR::Deopt(data.offset, proc.id)
+        => DMIR::Deopt(data.offset, vec![])
     ));
     out.push(check_type_deopt!(
         @1 !is value_tag_pred!(@union ValueTag::Number, ValueTag::Null)
-        => DMIR::Deopt(data.offset, proc.id)
+        => DMIR::Deopt(data.offset, vec![])
     ));
     out.push(DMIR::FloatCmp(op));
 }
@@ -221,8 +224,8 @@ fn gen_push_null(out: &mut Vec<DMIR>) {
 }
 
 fn build_float_bin_op_deopt(action: DMIR, data: &DebugData, proc: &Proc, out: &mut Vec<DMIR>) {
-    out.push(CheckTypeDeopt(0, ValueTagPredicate::Tag(ValueTag::Number), Box::new(DMIR::Deopt(data.offset, proc.id))));
-    out.push(CheckTypeDeopt(1, ValueTagPredicate::Tag(ValueTag::Number), Box::new(DMIR::Deopt(data.offset, proc.id))));
+    out.push(CheckTypeDeopt(0, ValueTagPredicate::Tag(ValueTag::Number), Box::new(DMIR::Deopt(data.offset, vec![]))));
+    out.push(CheckTypeDeopt(1, ValueTagPredicate::Tag(ValueTag::Number), Box::new(DMIR::Deopt(data.offset, vec![]))));
     out.push(action);
 }
 
@@ -256,7 +259,7 @@ fn decode_switch(value: ValueLocation, switch_id: &mut u32, cases: Vec<(ValueTag
 
 fn decode_binary_instruction(insn: Instruction, data: &DebugData, proc: &Proc, switch_counter: &mut u32, out: &mut Vec<DMIR>) {
     macro_rules! deopt {
-        () => ( vec![DMIR::Deopt(data.offset, proc.id), DMIR::End] );
+        () => ( vec![DMIR::Deopt(data.offset, vec![]), DMIR::End] );
     }
     match insn {
         Instruction::Add => {
@@ -301,6 +304,38 @@ fn decode_binary_instruction(insn: Instruction, data: &DebugData, proc: &Proc, s
                 )
             );
         }
+        Instruction::Band => {
+            out.append(&mut type_switch!(
+                    @switch_counter switch_counter,
+                    @stack 1,
+                    (ValueTag::Null) => vec![DMIR::Pop, DMIR::Pop, DMIR::PushInt(0)],
+                    (ValueTag::Number) => type_switch!(
+                        @switch_counter switch_counter,
+                        @stack 0,
+                        (ValueTag::Null) => vec![DMIR::Pop, DMIR::Pop, DMIR::PushInt(0)],
+                        (ValueTag::Number) => vec![DMIR::BitAnd],
+                        (@any) => deopt!()
+                    ),
+                    (@any) => deopt!()
+                )
+            );
+        }
+        Instruction::Bor => {
+            out.append(&mut type_switch!(
+                    @switch_counter switch_counter,
+                    @stack 1,
+                    (ValueTag::Null) => vec![DMIR::Swap, DMIR::Pop],
+                    (ValueTag::Number) => type_switch!(
+                        @switch_counter switch_counter,
+                        @stack 0,
+                        (ValueTag::Null) => vec![DMIR::Pop],
+                        (ValueTag::Number) => vec![DMIR::BitOr],
+                        (@any) => deopt!()
+                    ),
+                    (@any) => deopt!()
+                )
+            );
+        }
         _ => {}
     }
 }
@@ -330,8 +365,8 @@ pub fn decode_byond_bytecode(nodes: Vec<Node<DebugData>>, proc: Proc) -> Result<
             // if node contains instruction
             dmasm::Node::Instruction(insn, data) => {
                 macro_rules! deopt {
-                    () => { Box::new(DMIR::Deopt(data.offset, proc.id)) };
-                    (@type_switch) => ( vec![DMIR::Deopt(data.offset, proc.id), DMIR::End] );
+                    () => { Box::new(DMIR::Deopt(data.offset, vec![])) };
+                    (@type_switch) => ( vec![DMIR::Deopt(data.offset, vec![]), DMIR::End] );
                 }
                 match insn {
                     // skip debug info for now
@@ -343,7 +378,7 @@ pub fn decode_byond_bytecode(nodes: Vec<Node<DebugData>>, proc: Proc) -> Result<
                     Instruction::SetVar(vr) => {
                         decode_set_var(&vr, &mut irs)
                     }
-                    Instruction::Add | Instruction::Sub => {
+                    Instruction::Add | Instruction::Sub | Instruction::Band | Instruction::Bor => {
                         decode_binary_instruction(insn, &data, &proc, &mut switch_counter, &mut irs)
                     }
                     Instruction::Mul => {
@@ -414,7 +449,7 @@ pub fn decode_byond_bytecode(nodes: Vec<Node<DebugData>>, proc: Proc) -> Result<
                     Instruction::CallGlob(arg_count, callee) => {
                         match callee.path.as_ref() {
                             "/dm_jitaux_deopt" => {
-                                irs.push(DMIR::Deopt(data.offset, proc.id));
+                                irs.push(DMIR::Deopt(data.offset, vec![]));
                                 gen_push_null(&mut irs);
                             }
                             "/dmjit_is_optimized" => {
@@ -524,7 +559,63 @@ pub fn decode_byond_bytecode(nodes: Vec<Node<DebugData>>, proc: Proc) -> Result<
                         decode_set_var(&var, &mut irs);
                     }
                     Instruction::IsNull => {
-                        irs.push(DMIR::IsNull)
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Null) => vec![DMIR::Pop, DMIR::PushInt(1)],
+                            (@any) => vec![DMIR::Pop, DMIR::PushInt(0)]
+                        ));
+                    }
+                    Instruction::IsNum => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Number) => vec![DMIR::Pop, DMIR::PushInt(1)],
+                            (@any) => vec![DMIR::Pop, DMIR::PushInt(0)]
+                        ));
+                    }
+                    Instruction::IsText => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::String) => vec![DMIR::Pop, DMIR::PushInt(1)],
+                            (@any) => vec![DMIR::Pop, DMIR::PushInt(0)]
+                        ));
+                    }
+                    Instruction::IsTurf => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Turf) => vec![DMIR::TestIsDMEntity],
+                            (@any) => vec![DMIR::Pop, DMIR::SetTestFlag(false)]
+                        ));
+                    }
+                    Instruction::IsObj => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Obj) => vec![DMIR::TestIsDMEntity],
+                            (@any) => vec![DMIR::Pop, DMIR::SetTestFlag(false)]
+                        ));
+                    }
+                    Instruction::IsMob => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Mob) => vec![DMIR::TestIsDMEntity],
+                            (@any) => vec![DMIR::Pop, DMIR::SetTestFlag(false)]
+                        ));
+                    }
+                    Instruction::IsArea => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (ValueTag::Area) => vec![DMIR::TestIsDMEntity],
+                            (@any) => vec![DMIR::Pop, DMIR::SetTestFlag(false)]
+                        ));
+                    }
+                    Instruction::IsLoc => {
+                        irs.push(DMIR::TestIsDMEntity);
+                    }
+                    Instruction::IsMovable => {
+                        irs.append(&mut build_type_switch!(
+                            @stack 0,
+                            (@union ValueTag::Mob, ValueTag::Obj) => vec![DMIR::TestIsDMEntity],
+                            (@any) => vec![DMIR::Pop, DMIR::SetTestFlag(false)]
+                        ));
                     }
                     Instruction::Check2Numbers => {
                         irs.push(CheckTypeDeopt(

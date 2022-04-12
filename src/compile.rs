@@ -1,8 +1,8 @@
+use std::alloc::{alloc_zeroed, Layout};
 use std::cmp::max;
-use std::marker::PhantomPinned;
+use std::ffi::CStr;
+use std::lazy::Lazy;
 use std::mem::transmute_copy;
-use std::pin::Pin;
-use std::ptr::NonNull;
 
 use auxtools::{Proc, Value};
 use auxtools::DMResult;
@@ -16,51 +16,57 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::Module;
 use inkwell::OptimizationLevel;
 use inkwell::passes::PassManager;
-use inkwell::values::AnyValue;
+use inkwell::values::{AnyValue, MetadataValue};
+use llvm_sys::execution_engine::LLVMExecutionEngineGetErrMsg;
 
-use crate::{ByondProcFunc, chad_hook_by_id, DisassembleEnv, dmir, guard};
+use crate::{ByondProcFunc, chad_hook_by_id, DisassembleEnv, dmir, guard, pads};
 use crate::codegen::CodeGen;
 use crate::dmir::DMIR;
+use crate::proc_meta::{ProcMeta, ProcMetaModuleBuilder};
 use crate::ref_count::generate_ref_count_operations;
+use crate::section_memory_manager_bindings::{Section, SectionMemoryManager};
+use crate::stack_map::{read_stack_map, StackMap};
 use crate::variable_termination_pass::variable_termination_pass;
 
 #[hook("/proc/dmjit_compile_proc")]
 pub fn compile_and_call(proc_name: auxtools::Value) -> DMResult {
     guard(|| {
-        LLVM_CONTEXT.with(|val| {
-            let mut override_id = 0;
-            let base_proc = match proc_name.raw.tag {
-                ValueTag::String => {
-                    Proc::find(proc_name.as_string().unwrap())
-                }
-                ValueTag::ProcId => {
-                    Proc::from_id(ProcId(unsafe { proc_name.raw.data.id }))
-                }
-                _ => Option::None
-            };
+        let context = unsafe { &mut LLVM_CONTEXT };
+        let module_context = unsafe { &mut LLVM_MODULE_CONTEXT };
+        let module_context = module_context.get_or_insert_with(|| ModuleContext::new(context));
 
-            let name = if let Some(base_proc) = base_proc {
-                base_proc.path
-            } else {
-                return
-            };
-
-            loop {
-                if let Some(proc) = Proc::find_override(&name, override_id) {
-                    compile_proc(
-                        unsafe { val.context_ref.as_ref() },
-                        val.module.as_ref().unwrap(),
-                        val.execution_engine.as_ref().unwrap(),
-                        proc
-                    );
-                    override_id += 1;
-                } else {
-                    break
-                }
+        let mut override_id = 0;
+        let base_proc = match proc_name.raw.tag {
+            ValueTag::String => {
+                Proc::find(proc_name.as_string().unwrap())
             }
-        });
+            ValueTag::ProcId => {
+                Proc::from_id(ProcId(unsafe { proc_name.raw.data.id }))
+            }
+            _ => Option::None
+        };
 
-        DMResult::Ok(Value::null())
+        let name = if let Some(base_proc) = base_proc {
+            base_proc.path
+        } else {
+            return DMResult::Ok(Value::from(false))
+        };
+
+        loop {
+            if let Some(proc) = Proc::find_override(&name, override_id) {
+                compile_proc(
+                    context,
+                    &module_context.module,
+                    &mut module_context.meta_module,
+                    proc,
+                );
+                override_id += 1;
+            } else {
+                break;
+            }
+        }
+
+        DMResult::Ok(Value::from(true))
     })
 }
 
@@ -69,114 +75,162 @@ pub fn compile_and_call(proc_name: auxtools::Value) -> DMResult {
 pub fn install_hooks() -> DMResult {
     guard(|| {
         let mut installed: Vec<String> = vec!();
-        LLVM_CONTEXT.with(|val| {
-            let execution_engine = val.execution_engine.as_ref().unwrap();
-            let module = val.module.as_ref().unwrap();
+        let module_context = unsafe { &mut LLVM_MODULE_CONTEXT };
+        if module_context.is_none() {
+            return DMResult::Ok(Value::from(false))
+        }
+        let module_context = module_context.as_mut().unwrap();
+        let dmir_meta_kind_id = module_context.module.get_context().get_kind_id("dmir");
 
-            let mpm = PassManager::create(());
+        let module = &module_context.module;
 
-            mpm.add_always_inliner_pass();
-            mpm.run_on(module);
+        let mpm = PassManager::create(());
 
-            log::info!("Module {}", module.print_to_string().to_string());
+        mpm.add_always_inliner_pass();
+        mpm.run_on(module);
 
-            let mut curr_function = module.get_first_function();
-            while curr_function.is_some() {
-                if let Some(func_value) = curr_function {
-                    let name = func_value.get_name().to_str().unwrap();
+        let fpm = PassManager::create(module);
 
-                    if !name.starts_with("<intrinsic>/") && !name.starts_with("dmir.intrinsic") && func_value.get_intrinsic_id() == 0 {
-                        log::info!("installing {}", name);
-                        installed.push(name.to_string());
-                        let func: ByondProcFunc = unsafe {
-                            transmute_copy(&execution_engine.get_function_address(name).unwrap())
-                        };
+        fpm.add_early_cse_mem_ssa_pass();
+        fpm.add_loop_idiom_pass();
+        fpm.add_licm_pass();
+        fpm.add_instruction_combining_pass();
+        fpm.add_cfg_simplification_pass();
+        fpm.add_basic_alias_analysis_pass();
+        fpm.add_scalar_repl_aggregates_pass();
+        fpm.add_bit_tracking_dce_pass();
+        fpm.add_instruction_combining_pass();
+        fpm.add_reassociate_pass();
+        fpm.add_cfg_simplification_pass();
+        fpm.add_basic_alias_analysis_pass();
+        fpm.add_promote_memory_to_register_pass();
+        fpm.add_instruction_combining_pass();
+        fpm.add_reassociate_pass();
 
-                        log::info!("target is {} at {:?}", name, func as (*mut ()));
+        fpm.initialize();
 
-                        let proc_id_attrib = func_value.get_string_attribute(AttributeLoc::Function, "proc_id").unwrap();
-                        // TODO: cleanup
-                        let proc_id = auxtools::raw_types::procs::ProcId(proc_id_attrib.get_string_value().to_string_lossy().parse::<u32>().unwrap());
-                        let proc = Proc::from_id(proc_id).unwrap();
-                        chad_hook_by_id(proc.id, func);
-                    }
-                }
-
-                curr_function = curr_function.unwrap().get_next_function();
+        let mut curr_function = module.get_first_function();
+        while let Some(func_value) = curr_function {
+            let dmir_meta = func_value.get_metadata(dmir_meta_kind_id);
+            if dmir_meta.is_some() {
+                fpm.run_on(&func_value);
             }
-        });
+            curr_function = func_value.get_next_function();
+        }
+
+        if let Err(err) = module.verify() {
+            log::error!("err: {}", err.to_string());
+        }
+
+        unsafe {
+            MEM_MANAGER = alloc_zeroed(Layout::new::<SectionMemoryManager>()).cast();
+            *MEM_MANAGER = SectionMemoryManager::new();
+        }
+
+
+        let mm_ref = unsafe {
+            SectionMemoryManager::create_mcjit_memory_manager(MEM_MANAGER)
+        };
+
+        let execution_engine =
+            module.create_jit_execution_engine_with_options(|opts| {
+                opts.OptLevel = OptimizationLevel::Default as u32;
+                opts.MCJMM = mm_ref;
+            }).unwrap();
+
+        pads::bind_runtime_externals(module, &execution_engine);
+
+        log::info!("Module {}", module.print_to_string().to_string());
+
+        let mut curr_function = module.get_first_function();
+        while let Some(func_value) = curr_function {
+            if let Some(dmir_meta) = func_value.get_metadata(dmir_meta_kind_id) {
+                let name = func_value.get_name().to_str().unwrap();
+
+                log::info!("installing {}", name);
+                installed.push(name.to_string());
+                let func: ByondProcFunc = unsafe {
+                    transmute_copy(&execution_engine.get_function_address(name).unwrap())
+                };
+
+                log::info!("target is {} at {:?}", name, func as (*mut ()));
+
+                let proc_id_meta = dmir_meta.get_node_values()[0];
+                let proc_id_value = proc_id_meta.into_int_value().get_zero_extended_constant().unwrap() as u32;
+                let proc_id = auxtools::raw_types::procs::ProcId(proc_id_value);
+                let proc = Proc::from_id(proc_id).unwrap();
+                chad_hook_by_id(proc.id, func);
+            }
+            curr_function = func_value.get_next_function();
+        }
+
+        unsafe {
+            log::debug!("StackMap section lookup started");
+            let stack_map_section = (*MEM_MANAGER).sections.iter().find(|Section { name, .. }|
+                name.as_c_str() == CStr::from_bytes_with_nul_unchecked(".llvm_stackmaps\0".as_bytes())
+            );
+
+            log::debug!("StackMap section: {:?}", stack_map_section);
+
+            let stack_map = stack_map_section.map(|section| read_stack_map(section.address, section.size));
+            log::trace!("StackMap: {:#?}", stack_map);
+
+            let mut meta_update = module_context.meta_module.build_update_transaction(stack_map);
+
+            log::trace!("Meta update: {:#?}", meta_update);
+
+            meta_update.commit_transaction_to(&mut PROC_META);
+
+            log::debug!("All sections is: {:#?}", *(MEM_MANAGER));
+        }
 
 
         Value::from_string(installed.join(", "))
     })
 }
 
+pub(crate) static mut PROC_META: Vec<ProcMeta> = Vec::new();
 
 struct ModuleContext<'ctx> {
-    context: Context,
-    context_ref: NonNull<Context>,
-    module: Option<Module<'ctx>>,
-    execution_engine: Option<ExecutionEngine<'ctx>>,
-    _pin: PhantomPinned
+    module: Module<'ctx>,
+    meta_module: ProcMetaModuleBuilder,
 }
 
-impl<'ctx> Drop for ModuleContext<'ctx> {
-    fn drop(&mut self) {
-        self.execution_engine = Option::None;
-        self.module = Option::None;
-        drop(self.context_ref);
-    }
-}
 
-impl ModuleContext<'static> {
+pub(crate) static mut MEM_MANAGER: *mut SectionMemoryManager = std::ptr::null_mut();
 
-    fn new() -> Pin<Box<ModuleContext<'static>>> {
-        let s = ModuleContext {
-            context: Context::create(),
-            context_ref: NonNull::dangling(),
-            module: None,
-            execution_engine: None,
-            _pin: PhantomPinned
-        };
-
-        let mut boxed = Box::pin(s);
-
-        let context_ref = NonNull::from(&boxed.context);
+impl <'a, 'b> ModuleContext<'b> {
+    fn new(context: &'a Context) -> ModuleContext<'b> {
 
         let buf = MemoryBuffer::create_from_memory_range(include_bytes!("../target/runtime.bc"), "runtime.ll");
         let module =
-            unsafe { context_ref.as_ref() }
-                .create_module_from_ir(buf).unwrap();
+            unsafe {
+                &*(context as *const Context)
+            }.create_module_from_ir(buf).unwrap();
 
         module.set_name("dmir");
 
-        let execution_engine = module.create_jit_execution_engine(OptimizationLevel::Default).unwrap();
-
-
         log::info!("Initialize ModuleContext");
 
-        unsafe {
-            let mut_ref: Pin<&mut Self> = Pin::as_mut(&mut boxed);
-            let ctx = Pin::get_unchecked_mut(mut_ref);
-            ctx.module = Some(module);
-            ctx.execution_engine = Some(execution_engine);
-            ctx.context_ref = context_ref;
+        ModuleContext {
+            module,
+            meta_module: ProcMetaModuleBuilder::new(),
         }
-
-        boxed
     }
 }
 
-thread_local! {
-    static LLVM_CONTEXT: Pin<Box<ModuleContext<'static>>> = ModuleContext::new()
-}
+
+static mut LLVM_CONTEXT: Lazy<Context> = Lazy::new(|| Context::create());
+static mut LLVM_MODULE_CONTEXT: Option<ModuleContext<'static>> = Option::None;
+
 
 fn compile_proc<'ctx>(
     context: &'static Context,
     module: &'ctx Module<'static>,
-    execution_engine: &'ctx ExecutionEngine<'static>,
-    proc: auxtools::Proc
+    meta_module: &mut ProcMetaModuleBuilder,
+    proc: auxtools::Proc,
 ) {
+    let dmir_meta_kind_id = context.get_kind_id("dmir");
     log::info!("Trying compile {}", proc.path);
 
     // Take bytecode of proc to compile
@@ -220,21 +274,23 @@ fn compile_proc<'ctx>(
     for ir in &irs {
         compute_max_sub_call_arg_count(ir, &mut max_sub_call_arg_count);
     }
+
+    let meta_builder = meta_module.create_meta_builder(proc.id);
+
     // Prepare LLVM internals for code-generation
     let mut code_gen = CodeGen::create(
         context,
         &module,
         context.create_builder(),
-        execution_engine,
+        meta_builder,
         proc.parameter_names().len() as u32,
-        proc.local_names().len() as u32
+        proc.local_names().len() as u32,
     );
-    code_gen.init_builtins();
 
     let func = code_gen.create_jit_func(proc.path.as_str());
 
-    let proc_id_attr = context.create_string_attribute("proc_id", format!("{}", proc.id.0).as_str());
-    func.add_attribute(AttributeLoc::Function, proc_id_attr);
+    let node = context.metadata_node(&[context.i32_type().const_int(proc.id.0 as u64, false).into()]);
+    func.set_metadata(dmir_meta_kind_id, node);
 
     code_gen.emit_prologue(func, max_sub_call_arg_count);
     // Emit LLVM IR nodes from DMIR
@@ -250,29 +306,5 @@ fn compile_proc<'ctx>(
         log::error!("err: {}", err.to_string());
     }
 
-    log::info!("Compiled {}, installing {}", verify, proc.path);
-
-    let fpm = PassManager::create(code_gen.module);
-
-    fpm.add_early_cse_mem_ssa_pass();
-    fpm.add_loop_idiom_pass();
-    fpm.add_licm_pass();
-    fpm.add_instruction_combining_pass();
-    fpm.add_cfg_simplification_pass();
-    fpm.add_basic_alias_analysis_pass();
-    fpm.add_scalar_repl_aggregates_pass();
-    fpm.add_bit_tracking_dce_pass();
-    fpm.add_instruction_combining_pass();
-    fpm.add_reassociate_pass();
-    fpm.add_cfg_simplification_pass();
-    fpm.add_basic_alias_analysis_pass();
-    fpm.add_promote_memory_to_register_pass();
-    fpm.add_instruction_combining_pass();
-    fpm.add_reassociate_pass();
-
-    fpm.initialize();
-
-    let res = fpm.run_on(&func);
-    log::info!("OPT -- {}\n{}", res, func.print_to_string().to_string());
-
+    log::info!("Verify {}: {}", proc.path, verify);
 }

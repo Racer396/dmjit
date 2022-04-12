@@ -1,6 +1,8 @@
 #![feature(core_intrinsics)]
 #![feature(once_cell)]
 #![feature(asm)]
+#![feature(naked_functions)]
+#![feature(const_fn_fn_ptr_basics)]
 
 mod compile;
 pub(crate) mod pads;
@@ -21,11 +23,15 @@ mod tools;
 
 #[cfg(feature = "test_utils")]
 mod test_utils;
+pub(crate) mod stack_map;
+mod section_memory_manager_bindings;
+pub(crate) mod proc_meta;
 
 
 #[macro_use]
 extern crate auxtools;
 extern crate log;
+extern crate core;
 
 use std::collections::HashMap;
 use auxtools::{hook, CompileTimeHook, StringRef, raw_types, DMResult, Runtime};
@@ -161,9 +167,7 @@ pub fn log_init() -> DMResult {
 
     auxtools::hooks::install_interceptor(intercept_proc_call);
 
-    pads::deopt::initialize_deopt();
-    pads::debug::init();
-    pads::lists::init();
+    pads::init();
 
     Value::from_string(format!("dmJIT init success, {}", ver_string!()))
 }
