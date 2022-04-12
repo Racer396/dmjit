@@ -1,0 +1,25 @@
+name: Build DMJit for Linux [Manual]
+
+on:
+  push:
+    branches: ['main']
+  workflow_run:
+    workflows: ["(Linux) Create and push Byond image"]
+    types:
+      - completed
+  
+jobs:
+  build-dmjit:
+    runs-on: ubuntu-latest
+    container: 
+      image: ghcr.io/racer396/dmjit-llvm-rust-linux:main
+      options: --user root
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: ./.github/workflows/linux_build_dmjit.yaml
+        with:
+          byondVersion: 514
+          byondBuild: 1583

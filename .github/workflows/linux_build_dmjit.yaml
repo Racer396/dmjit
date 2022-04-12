@@ -1,25 +1,19 @@
 name: Build DMJit for Linux
 
 on:
-  workflow_run:
-    workflows: ["(Linux) Create and push Byond image"]
-    types:
-      - completed
   workflow_call:
     inputs:
       byondVersion:
         description: 'Byond major version, like 514 in 514.1543 version'     
-        required: false
-        default: 514
-        type: number
+        required: true
+        default: '514'
+        type: string
       byondBuild:
         description: 'Byond build version, like 1543 in 514.1543 version'     
-        required: false
-        default: 1583
-        type: number
-  push:
-    branches: ['main']
-  
+        required: true
+        default: '1583'
+        type: string
+
 jobs:
   build-dmjit:
     runs-on: ubuntu-latest
