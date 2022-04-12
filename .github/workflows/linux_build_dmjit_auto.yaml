@@ -18,9 +18,11 @@ jobs:
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v3
+        with:
+          path: dmjit
       - name: Check folder
         run: ls -a
-      - uses: .github/workflows/linux_build_dmjit.yaml
+      - uses: dmjit/.github/workflows/linux_build_dmjit.yaml
         with:
           byondVersion: 514
           byondBuild: 1583
