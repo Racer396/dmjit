@@ -14,9 +14,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    steps:
-      - uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
-        with:
-          byondVersion: '514'
-          byondBuild: '1583'
+    uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
+    with:
+      byondVersion: '514'
+      byondBuild: '1583'
