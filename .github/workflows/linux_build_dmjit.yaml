@@ -67,16 +67,14 @@ jobs:
           RUSTDOCFLAGS: -Cpanic=abort
       - name: Upload test results
         uses: EnricoMi/publish-unit-test-result-action@v1
-        working-directory: ./dmjit
         with:
           check_name: Test Results
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: results.xml
+          files: ./dmjit/results.xml
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
-        working-directory: ./dmjit
         with:
           # required for private repositories:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./lcov.info
+          files: ./dmjit/lcov.info
           fail_ci_if_error: true
