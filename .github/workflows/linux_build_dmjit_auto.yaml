@@ -10,7 +10,7 @@ on:
   
 jobs:
   build-dmjit:
-    uses: racer396/dmjit/.github/actions/dmjit-linux/build_dmjit.yaml@main
+    uses: racer396/dmjit/.github/workflows/linux_build_dmjit.yaml@main
     with:
       byondVersion: '514'
       byondBuild: '1569'
