@@ -1,4 +1,4 @@
-name: Build DMJit for Linux [Auto]
+name: Build DMJit for Linux [PullRequest]
 
 on:
   pull_request:
